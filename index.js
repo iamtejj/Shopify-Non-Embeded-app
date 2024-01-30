@@ -13,59 +13,86 @@ const mongoUrl = process.env.MONGO_URL;
 
 mongoose.connect(mongoUrl);
 
+
 app.get('/auth', async (req, res) => {
   // The library will automatically redirect the user
-  
+
   const shop = req.query.shop;
   if (!shop) {
     res.status(401).send("Please Provide a shop")
   }
-  await shopify.auth.begin({
+  return await shopify.auth.begin({
     shop: shopify.utils.sanitizeShop(req.query.shop, true),
-    callbackPath: '/auth/callback',
-    isOnline: true,
+    callbackPath: '/auth/token',
+    isOnline: false,
     rawRequest: req,
     rawResponse: res,
   });
 });
+app.get('/auth/token', async (req, res) => {
+  try {
+    const callback = await shopify.auth.callback({
+      rawRequest: req,
+      rawResponse: res,
+    });
+    const { session } = callback;
+    const sessionShop = session.shop;
+    await sessionHandler.storeSession(session);
+    const webhookRegisterResponse = await shopify.webhooks.register({
+      session
+    }); //Register all webhooks with offline token
+    console.dir(webhookRegisterResponse, { depth: null }); //This is an array that includes all registry responses.
+    return await shopify.auth.begin({
+      shop: sessionShop,
+      callbackPath: "/auth/callback",
+      isOnline: true,
+      rawRequest: req,
+      rawResponse: res,
+    });
+  } catch (error) {
+    console.log(error)
+    res.redirect('/notfound')
+  }
+})
 app.get('/auth/callback', async (req, res) => {
-  // The library will automatically set the appropriate HTTP headers
-  console.log("calll")
-  const shop = req.query.shop
-  console.log("shop is reacingt")
-  const callback = await shopify.auth.callback({
-    rawRequest: req,
-    rawResponse: res,
-  });
-  
-  const { session } = callback;
-  const sessionShop = session.shop
-  await sessionHandler.storeSession(session)
-  await StoreModel.findOneAndUpdate(
-    {shop:sessionShop},
-    {isActive:true},
-    {upsert:true}
-  )
- 
+  try {
+    const callback = await shopify.auth.callback({
+      rawRequest: req,
+      rawResponse: res,
+    });
+    const { session } = callback;
+    const sessionShop = session.shop
+    await sessionHandler.storeSession(session)
+    await StoreModel.findOneAndUpdate(
+      { shop: sessionShop },
+      { isActive: true },
+      { upsert: true }
+    )
+    res.redirect('/');
+  } catch (error) {
+    res.redirect('/notfound')
+  }
   // You can now use callback.session to make API requests
-  res.redirect('/my-apps-entry-page');
 
 })
 const root = process.cwd()
 app.use(express.static(path.join(root, './frontend/app-frontend/dist')));
-app.get("/myrout",(req,res)=>{
-  res.json("heelo")
+app.get("/myrout", (req, res) => {
+
 })
 
-app.get('/myproducts',async (req,res)=>{
+app.get('/myproducts', async (req, res) => {
+  try {
+    
+  
   const sessionId = await shopify.session.getCurrentId({
-    isOnline: false,
+    isOnline: true,
     rawRequest: req,
     rawResponse: res,
   });
   const session = await sessionHandler.loadSession(sessionId)
   const queryString = `{
-  products (first: 3) {
+  products (first: 50) {
     edges {
       node {
         id
@@ -74,32 +101,35 @@ app.get('/myproducts',async (req,res)=>{
     }
   }
 }`
-// `session` is built as part of the OAuth process
-const client = new shopify.clients.Graphql({session});
-const products = await client.query({
-  data: queryString,
-});
-res.json(products)
+  // `session` is built as part of the OAuth process
+  const client = new shopify.clients.Graphql({ session });
+  const products = await client.query({
+    data: queryString,
+  });
+  res.json(products)
+} catch (error) {
+  res.redirect('/notfound')
+}
 })
 app.get('/mysession', async (req, res) => {
-  const sessionId = await shopify.session.getCurrentId({
-    isOnline: false,
-    rawRequest: req,
-    rawResponse: res,
-  });
-  const session = await sessionHandler.loadSession(sessionId)
-  console.log("my session")
-  console.log(session)
-  const file = fs.readFileSync(`${root}/frontend/app-frontend/index.html`,'utf-8')
-  const client = new shopify.clients.Rest({session});
-  const shop = await client.get({path: 'shop'})
-  res.json(shop);
-  // res
-  // .status(200)
-  // .set("Content-Type", "text/html")
-  // .sendFile(`${root}/frontend/app-frontend/dist/index.html`);
-  // res.send("hellowork")
-});
+  try {
+    const sessionId = await shopify.session.getCurrentId({
+      isOnline: true,
+      rawRequest: req,
+      rawResponse: res,
+    });
+    const session = await sessionHandler.loadSession(sessionId)
+    const client = new shopify.clients.Rest({ session });
+    const shop = await client.get({ path: 'shop' })
+    res.json(shop);
+  } catch (error) {
+    res.redirect('/notfound')
+  }
+}); 
+app.get('/notfound', (req, res) => {
+
+  res.send(`<a href="/auth?shop=code-with-tj.myshopify.com">Something when wrong</a>`)
+})
 app.listen(8080, () => {
   console.log("app in listening on 8080")
 })
