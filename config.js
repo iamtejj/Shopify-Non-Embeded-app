@@ -7,7 +7,7 @@ const shopify = shopifyApi({
     apiKey: process.env.SHOPIFY_API_KEY,
     apiSecretKey: process.env.SHOPIFY_CLIENT_SECRETE,
     scopes: process.env.SCOPES.split(','),
-    hostName: '6db9-2402-a00-162-6b7c-9542-861d-b179-fcd1.ngrok-free.app',
+    hostName: process.env.SHOPIFY_APP_URL.replace('https://',''),
     hostScheme: 'https',
     isEmbeddedApp: false,
   
