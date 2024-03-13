@@ -1,8 +1,9 @@
 import logo from "./assets/shopify_logo_whitebg.svg";
 import { useState } from "react"
-
+import {Link, useNavigate} from "react-router-dom"
 
 function App() {
+  const navigate = useNavigate();
     const [formdata,setFormdata] = useState({
       email:"",
       password:"",
@@ -21,14 +22,15 @@ function App() {
         
       }) 
       .then((response)=>{
-        window.location.href = '/auth?shop='+response.shop
-        console.log(response)
+        navigate('/auth?shop='+response.shop)
+        
       })
     }
     
 
   return (
     <> 
+    <Link to="/signin">signup</Link>
       <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-sm">
           <img className="mx-auto h-10 w-auto" src={logo} alt="Your Company" />

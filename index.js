@@ -8,6 +8,7 @@ import StoreModel from "./utils/modals/StoreModel.js";
 import path from "path";
 import fs from "fs";
 import { merchantRouter } from "./Routes/merchant.js";
+import { error } from "console";
 
 const app = express();
 const mongoUrl = process.env.MONGO_URL;
@@ -134,6 +135,12 @@ app.get("/notfound", (req, res) => {
     `<a href="/auth?shop=code-with-tj.myshopify.com">Something when wrong</a>`
   );
 });
+app.get('*', (req, res) => {
+  res.sendFile(path.join(root,'./frontend/app-frontend/dist', 'index.html'));
+});
+app.use(function(error,req,res,next){
+  console.log(error)
+})
 app.listen(8080, () => {
   console.log("app in listening on 8080");
 });
