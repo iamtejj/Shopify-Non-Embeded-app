@@ -13,4 +13,4 @@ const shopify = shopifyApi({
   
   });
 
-export default shopify
+export default shopify 

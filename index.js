@@ -15,22 +15,27 @@ const mongoUrl = process.env.MONGO_URL;
 
 mongoose.connect(mongoUrl);
 
+
 app.get("/auth", async (req, res) => {
   // The library will automatically redirect the user
 
   const shop = req.query.shop;
   if (!shop) {
-    res.status(401).send("Please Provide a shop");
+    return res.status(401).send("Please Provide a shop"); 
   }
+  const sanitizeShop = shopify.utils.sanitizeShop(req.query.shop, true)
+  console.log(sanitizeShop)
   return await shopify.auth.begin({
-    shop: shopify.utils.sanitizeShop(req.query.shop, true),
+    shop: sanitizeShop,
     callbackPath: "/auth/token",
     isOnline: false,
     rawRequest: req,
     rawResponse: res,
-  });
+  }); 
 });
+
 app.get("/auth/token", async (req, res) => {
+  console.log("auth token")
   try {
     const callback = await shopify.auth.callback({
       rawRequest: req,
@@ -52,7 +57,7 @@ app.get("/auth/token", async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.redirect("/notfound");
+    return res.redirect("/notfound");
   }
 });
 app.get("/auth/callback", async (req, res) => {
@@ -76,13 +81,15 @@ app.get("/auth/callback", async (req, res) => {
   // You can now use callback.session to make API requests
 });
 
+
+
 app.use(express.json())
 app.use('/api/v1/mechant',merchantRouter)
 
 
 // Serve Static React Frontend
 const root = process.cwd();
-app.use(express.static(path.join(root, "./frontend/app-frontend/dist")));
+// app.use(express.static(path.join(root, "./frontend/app-frontend/dist")));
 app.get("/myrout", (req, res) => {});
 
 app.get("/myproducts", async (req, res) => {
@@ -135,11 +142,22 @@ app.get("/notfound", (req, res) => {
     `<a href="/auth?shop=code-with-tj.myshopify.com">Something when wrong</a>`
   );
 });
-app.get('*', (req, res) => {
-  res.sendFile(path.join(root,'./frontend/app-frontend/dist', 'index.html'));
-});
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(root,'./frontend/app-frontend/dist', 'index.html'));
+// });
+app.use('/',(req,res,next)=>{
+  const shop = req.query.shop
+  if(shop){
+    res.redirect(`/auth?shop=${shop}`)
+    return next()
+  }
+  else{
+    res.send("please Provide a shop")
+  }
+})
 app.use(function(error,req,res,next){
   console.log(error)
+  next()
 })
 app.listen(8080, () => {
   console.log("app in listening on 8080");
